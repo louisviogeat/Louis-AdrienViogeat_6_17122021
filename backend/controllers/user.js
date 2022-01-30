@@ -6,7 +6,6 @@ const User = require('../models/User');
 exports.signup = (req, res, next) => {
     bcrypt.hash(req.body.password, 10)
         .then(hash => {
-            console.log('hash', hash);
             const user = new User({
                 email: req.body.email,
                 password: hash
@@ -21,13 +20,11 @@ exports.signup = (req, res, next) => {
 };
 
 exports.login = (req, res, next) => {
-    console.log('a', req.body);
     User.findOne({ email: req.body.email })
         .then(user => {
             if (!user) {
                 return res.status(401).json({ error: 'Utilisateur non trouvé !' });
             }
-            console.log(req.body.password, user.password);
             bcrypt.compare(req.body.password, user.password)
                 .then(valid => {
                     if (!valid) {

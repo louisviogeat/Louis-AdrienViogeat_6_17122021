@@ -15,9 +15,6 @@ exports.getOneSauce = (req, res, next) => {
 
 exports.createSauce = (req, res, next) => {
     const sauceObject = JSON.parse(req.body.sauce);
-    console.log('body', req.body);
-    console.log('sauce', req.body.sauce);
-
     delete sauceObject._id;
     const sauce = new Sauce({
         ...sauceObject,
@@ -25,18 +22,23 @@ exports.createSauce = (req, res, next) => {
     });
     sauce.save()
         .then(() => {
-            console.log('ici');
             res.status(201).json({ message: 'Sauce enregistré !' })
         })
         .catch((error) => {
-            console.log('erreur création sauce:', error);
             res.status(400).json({ error })
         });
 };
 
 exports.updateSauce = (req, res, next) => {
-    console.log(req.body);
-    // si req.file alors image update => supprimer l'ancienne
+
+    if (req.file) {
+        Sauce.findOne({ _id: req.params.id })
+            .then(sauce => {
+                const filename = sauce.imageUrl.split('/images/')[1];
+                fs.unlink(`images/${filename}`, () => {
+                });
+            }).catch(error => res.status(500).json({ error }));
+    }
     const sauceObject = req.file ?
         {
             ...JSON.parse(req.body.sauce),
@@ -50,7 +52,6 @@ exports.updateSauce = (req, res, next) => {
 };
 
 exports.deleteSauce = (req, res, next) => {
-    console.log('deleteSauce');
 
     Sauce.findOne({ _id: req.params.id })
         .then(sauce => {
@@ -65,11 +66,36 @@ exports.deleteSauce = (req, res, next) => {
 
 exports.likeOrDislikeSauce = (req, res, next) => {
     const userId = req.body.userId;
-    const like = req.body.like;
+    const likeOrDislike = req.body.like;
     Sauce.findOne({ _id: req.params.id })
         .then((sauce) => {
-            //mettre à jour le tableau userslike/usersdislike 
-            //maj likes/dislike ++
+            switch (likeOrDislike) {
+                case 1:
+                    if (!sauce.usersLiked.includes(userId)) {
+                        sauce.likes++;
+                        sauce.usersLiked.push(userId);
+                    }
+                    break;
+                case -1:
+                    if (!sauce.usersDisliked.includes(userId)) {
+                        sauce.dislikes++;
+                        sauce.usersDisliked.push(userId);
+                    }
+                    break;
+                case 0:
+                    if (sauce.usersLiked.includes(userId)) {
+                        const index = sauce.usersLiked.findIndex((userLiked) => userLiked === userId);
+                        sauce.usersLiked.splice(index);
+                        sauce.likes--;
+                    } else if (sauce.usersDisliked.includes(userId)) {
+                        const index = sauce.usersDisliked.findIndex((userDisliked) => userDisliked === userId);
+                        sauce.usersDisliked.splice(index);
+                        sauce.dislikes--;
+                    }
+                    break;
+                default:
+                    break;
+            }
             sauce.save()
                 .then(() => res.status(200).json())
                 .catch(error => res.status(400).json({ error }));
